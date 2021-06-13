@@ -1,0 +1,404 @@
+---
+title: "Social Network Analysis"
+author: "Amanda Oliveira"
+date: "2/11/2021"
+output: html_document
+---
+
+## **1. Application: Classroom Structures** 
+
+In this first SNA application I will be generating and analyzing three social networks (also known as graphs or sociograms) based on three different measures. I will be using data from:
+
+Representing Classroom Social Structure. Melbourne: Victoria Institute of Secondary Education, M. Vickers and S. Chan, (1981)
+
+Available from the Index of Complex Networks ([ICON](https://icon.colorado.edu/#!/))
+
+The data were collected by Vickers & Chan from 29 seventh grade students in a school in Victoria, Australia. Students were asked to nominate their classmates on a number of relations including the following three "layers":  
+
+1. Who do you get on with in the class?  
+2. Who are your best friends in the class?  
+3. Who would you prefer to work with?  
+
+
+#### **1.1. Data Wrangling**
+
+```{r}
+#install.packages("tidyr")
+#install.packages("dplyr")
+#install.packages("igraph")
+library(tidyr)
+library(dplyr)
+library(igraph)
+
+getwd()
+
+friends <- read.csv("./data/victoria_data/best.friends.csv", header=T)
+friends$from <- as.factor(friends$from)
+friends$to <- as.factor(friends$to)
+
+geton <- read.csv("./data/victoria_data/get.on.with.csv", header=T)
+geton$from <- as.factor(geton$from)
+geton$to <- as.factor(geton$to)
+
+workwith <- read.csv("./data/victoria_data/work.with.csv", header=T)
+workwith$from <- as.factor(workwith$from)
+workwith$to <- as.factor(workwith$to)
+
+```
+
+#### **1.2. Visualize the Networks**
+
+```{r}
+
+# Friends 
+e <- select(friends, from, to)
+v <- unique(select(friends, from, gender.from))
+f <- graph.data.frame(e, directed=T, vertices=v)
+
+V(f)$color=c( "pink", "cadetblue")[1+(V(f)$gender.from=="male")]
+V(f)$size=15
+V(f)$label.cex=.7
+V(f)$label.color="black"
+E(f)$arrow.size=.5
+
+# Work With 
+e1 <- select(workwith, from, to)
+v1 <- unique(select(workwith, from, gender.from))
+w <- graph.data.frame(e1, directed=T, vertices=v1)
+
+V(w)$color=c( "pink", "cadetblue")[1+(V(w)$gender.from=="male")]
+V(w)$size=15
+V(w)$label.cex=.7
+V(w)$label.color="black"
+E(w)$arrow.size=.3
+
+# Get On With
+e2 <- select(geton, from, to)
+v2 <- unique(select(geton, from, gender.from))
+g <- graph.data.frame(e2, directed=T, vertices=v2)
+
+V(g)$color=c( "pink", "cadetblue")[1+(V(w)$gender.from=="male")]
+V(g)$size=15
+V(g)$label.cex=.7
+V(g)$label.color="black"
+E(g)$arrow.size=.3
+
+# GRAPH
+# par(mfrow=c(1,3))
+
+#pdf(file="Friends.pdf")
+set.seed(77)
+plot(f, layout=layout.fruchterman.reingold) 
+title("Who are your best friends in the class?", cex.main=1, col.main="black")
+legend(x=-1.5, y=-1.1, c("Female","Male"), pch=21,col="#777777", pt.bg=c("pink", "cadetblue"), pt.cex=2, cex=.8, bty="n", ncol=1)
+
+#pdf(file="WorkWith.pdf")
+set.seed(77)
+plot(w, layout=layout.fruchterman.reingold) 
+title("Who would you prefer to work with?", cex.main=1, col.main="black")
+legend(x=-1.5, y=-1.1, c("Female","Male"), pch=21,col="#777777", pt.bg=c("pink", "cadetblue"), pt.cex=2, cex=.8, bty="n", ncol=1)
+
+#pdf(file="GetOnWith.pdf")
+set.seed(77)
+plot(g, layout=layout.fruchterman.reingold) 
+title("Who do you get on with in the class?", cex.main=1, col.main="black")
+legend(x=-1.5, y=-1.1, c("Female","Male"), pch=21,col="#777777", pt.bg=c("pink", "cadetblue"), pt.cex=2, cex=.8, bty="n", ncol=1)
+
+
+
+```
+
+#### **1.3. Network Attributes**
+
+##### **1.3.1. Centrality Measures: Degree Centrality**
+
+```{r}
+
+# Friends: Student #21 has the highest in-degree centrality in the Friends network.
+  # Twelve students said she (#21) is one of their best friends. 
+degree(f, mode="in")
+which.max(degree(f, mode="in"))
+centr_degree(f, mode="in", normalized=T)
+
+# Work with: Student #16 is probably a hard worker. Seventeen of her colleagues said they "would prefer to work" with her. 
+degree(w, mode="in")
+which.max(degree(w, mode="in"))
+centr_degree(w, mode="in", normalized=T)
+
+# Get on with: Students #14 & #16 have the highest in-degree centrality in the GetOn network. 
+  # Nineteen of their colleagues said they "get on with" them. 
+degree(g, mode="in")
+sort(degree(g, mode="in"))
+centr_degree(g, mode="in", normalized=T)
+
+```
+
+##### **1.3.2. Centrality Measures: Closeness Centrality**
+
+```{r}
+
+# Friends: Student 8 has the highest closeness centrality in this network.
+  # It means that student #8 is who can reach all other individuals in the network "more quickly"
+sort(closeness(f, mode="all", weights=NA))
+centr_clo(f, mode="all", normalized=T) 
+
+
+# Work with: Student 6
+sort(closeness(w, mode="all", weights=NA))
+centr_clo(w, mode="all", normalized=T) 
+
+
+# Get on with: Student 11
+sort(closeness(g, mode="all", weights=NA))
+centr_clo(g, mode="all", normalized=T) 
+
+
+```
+
+##### **1.3.3. Centrality Measures: Betweenness Centrality** 
+
+```{r}
+
+# Degree Centrality is a measurement of "direct influence". 
+  # Remember that in the Friends network student #21 had the highest degree centrality: 
+  # she has the power to influence (through her friendship) the highest number of individuals in this classroom. 
+# Betweenness Centrality, on the other hand, is a measure of indirect influence. 
+  # In the Friends network, student #28 has the highest betweenness centrality. This student acts as a connector 
+  # between students that are otherwise disconnected. 
+  
+sort(betweenness(f, directed=T)) # Highest betweenness centrality: Student 28
+sort(betweenness(w, directed=T)) # Student 11
+sort(betweenness(g, directed=T)) # Student 11
+
+```
+
+##### **1.3.4. Simple structures:** [Dyads](http://igraph.org/r/doc/dyad_census.html) **and** [Triads](http://igraph.org/r/doc/triad_census.html) 
+
+```{r}
+
+# Friends 
+dyad_census(f)
+  # there are 121 pairs of individuals with mutual connections in this network. These refer to students who mutually indicate each other as one of their best friends.
+  # there are also 119 pairs with non-mutual connections ("platonic friendships")
+  # 166 pairs of students did not connect with each other at the friendship level.
+
+triad_census(f)
+  # There is a total of 46 "complete triads" in this network - or 46 groups of three students who are all friends with each other.
+
+# Work with
+dyad_census(w)
+triad_census(w) # This network has the lowest number (37) of complete triads among all three networks
+
+# Get on with
+dyad_census(g)
+triad_census(g)
+  # ot surprisingly, the "get along with" network has the largest number of "complete triads" among all three networks. 
+  # In fact, it is easier to "get along with" someone than it is to be friends or willing to work with them. 
+
+```
+
+##### **1.3.5.** [Cliques](http://igraph.org/r/doc/cliques.html)
+
+```{r}
+
+# Friends
+count_max_cliques(f) # There are 35 maximal cliques in the Friends network
+clique_num(f) # The size of the largest clique is 7
+
+largest_cliques(f)
+count_max_cliques(f) # There are 35 maximal cliques in the Friends network
+
+set.seed(77)
+x <- f
+largest_cliques(x) 
+vcol <- rep("lightblue", vcount(x))
+vcol[unlist(largest_cliques(x))] <- "salmon"
+plot(as.undirected(x), vertex.label=V(x)$name, vertex.color=vcol)
+legend(x=-1.5, y=-1.1, c("in largest cliques","others"), pch=21,col="#777777", pt.bg=c("salmon", "lightblue"), pt.cex=2, cex=.8, bty="n", ncol=1)
+title("Who do you get on with in the class?", cex.main=1, col.main="black")
+
+# Work with
+count_max_cliques(w) # There are 36 maximal cliques in the Work network
+clique_num(w) # The size of the largest clique is 
+
+largest_cliques(w)
+count_max_cliques(w) # And 36 maximal cliques in the Work network
+
+set.seed(77)
+x <- w
+largest_cliques(x) 
+vcol <- rep("lightblue", vcount(x))
+vcol[unlist(largest_cliques(x))] <- "salmon"
+plot(as.undirected(x), vertex.label=V(x)$name, vertex.color=vcol)
+legend(x=-1.5, y=-1.1, c("in largest cliques","others"), pch=21,col="#777777", pt.bg=c("salmon", "lightblue"), pt.cex=2, cex=.8, bty="n", ncol=1)
+title("Who would you prefer to work with?", cex.main=1, col.main="black")
+
+# Get on with
+count_max_cliques(g) # There are 64 maximal cliques in the Geton network
+clique_num(g) # The size of the largest clique is 12
+
+largest_cliques(g)
+count_max_cliques(g) # And 64 maximal cliques in the Geton network
+
+set.seed(77)
+x <- g
+largest_cliques(x) 
+vcol <- rep("lightblue", vcount(x))
+vcol[unlist(largest_cliques(x))] <- "salmon"
+plot(as.undirected(x), vertex.label=V(x)$name, vertex.color=vcol)
+legend(x=-1.5, y=-1.1, c("in largest cliques","others"), pch=21,col="#777777", pt.bg=c("salmon", "lightblue"), pt.cex=2, cex=.8, bty="n", ncol=1)
+title("Who do you get on with in the class?", cex.main=1, col.main="black")
+
+
+```
+
+##### **1.3.6. Components & Cutpoints**
+
+```{r}
+
+# Student #13 is a cutpoint (articulation) both in the Friends and in the WorkWith networks. The removal of this individual would make students 18 and 25 alienated from the rest of the class. It is crucial that attention be given to students 18 and 25. 
+# It is a good sign there there is not cutpoint in the GetOn network. 
+# It is interesting that a number of students declared to "get on with" students 18 and 25, but these two students only nominated each other in this question. 
+
+articulation.points(f) # student 13
+articulation.points(w) # student 13
+articulation.points(g) # none
+
+# Friends
+set.seed(77)
+x <- f
+V(x)$color = ifelse(V(x) %in% articulation_points(x), "salmon", "lightblue")
+plot(as.undirected(x), layout=layout.fruchterman.reingold) 
+title("Who are your best friends in the class?", cex.main=1, col.main="black")
+legend(x=-1.5, y=-1.1, c("network cutpoint(s)"), pch=21,col="#777777", pt.bg=c("salmon"), pt.cex=2, cex=.8, bty="n", ncol=1)
+
+# Work with
+set.seed(77)
+x <- w
+V(x)$color = ifelse(V(x) %in% articulation_points(x), "salmon", "lightblue")
+plot(as.undirected(x), layout=layout.fruchterman.reingold) 
+title("Who would you prefer to work with?", cex.main=1, col.main="black")
+legend(x=-1.5, y=-1.1, c("network cutpoint(s)"), pch=21,col="#777777", pt.bg=c("salmon"), pt.cex=2, cex=.8, bty="n", ncol=1)
+
+
+
+```
+
+#### **1.4. Analysis**
+
+Gender plays a huge role on how groups and friendships are formed in this class - a dynamic not too uncommon among young (in this case 7th grade) students. But I would be cautious to forcefully promote "a gender mix" in this class. Grouping students from opposite sides of these networks could become a stressful experience to them. Instead, I would suggest starting with milder interventions - mixing boys and girls (and other disconnected students), but not at random: keeping an "integrating" student in the group could help things flow more smoothly among "non-friends".
+
+It was worrying to see students 18 and 25 "segregated" in the Friends and WorkWith networks. These students seem to need a lot of assistance to better bond with the rest of the class. As a partial relief, these same students are better integrated in the GetOn network - which suggests that there is likely no "animosity" against them in this class. 
+
+Inspecting the GetOn graph a little closer, we will see that a lot of students said they "get on with" students 18 and 25 - but these two students "do not get on with" anybody except with each other. Perhaps they fear rejection and self-isolate. Student 13 influence could be used to promote the integration of these students into the overall class network. In a group exercise, for instance, the instructor could put together students 25, 18, 13, and 23 - to slowly (not too forcefully) integrate this network. Other students in the edges of the graphs also require closer attention from the professor.
+
+
+
+
+## **2. Application: Corporate Inter-relationships**
+
+
+Data from [EVA](http://vlado.fmf.uni-lj.si/pub/networks/data/econ/Eva/Eva.htm) - Extraction, Visualization & Analysis of corporate inter-relationships
+
+
+#### **2.1. Data Wrangling**
+
+```{r}
+
+# "An arc (X,Y) from company X to company Y exists in the network if in the company X is an owner of company Y".
+ownership <- read.delim("./data/eva_data/ownership.txt", header=T)
+names <- read.delim("./data/eva_data/names.txt", header=T)
+
+# Data wrangling 
+ownership <- ownership %>% unique() %>% na.omit() %>% rename(from=X1, to=X37)
+names <- names %>% unique %>% na.omit() %>% rename(from=X1, name=Advance.Publications)
+
+# Company "size"
+size <- ownership %>% group_by(from) %>% summarize(csize= n())
+summary(size)
+
+# Edge
+edge <- ownership
+
+# Vertice 
+vertice <- unique(as.data.frame(sort(union(edge$from, edge$to))))
+vertice <- vertice %>% rename(from=c(,1))
+vertice <- left_join(vertice, names)
+vertice <- left_join(vertice, size)
+
+```
+
+#### **2.2. Visualize the Networks** 
+
+```{r}
+#Graph #1: All companies
+eva <- graph.data.frame(edge, directed=T, vertices=vertice)
+
+color <- colorRampPalette(c("gray80", "dark red"))
+color(10)
+
+V(eva)$size=.01
+V(eva)$color=ifelse(V(eva)$csize<=50, "gray80", ifelse(V(eva)$csize<=100, "yellow", "darkred"))
+V(eva)$label=NA
+E(eva)$arrow.size=.001
+
+set.seed(66)
+plot(eva)
+title("Corporate Inter-relationships", cex.main=1, col.main="black")
+
+
+
+# Graph #2: Big companies owning other big companies
+
+vertice_big <- vertice[which(vertice$csize>40),]
+summary(vertice_big)
+
+from <- as.data.frame(select(vertice_big, from))
+to <- as.data.frame(select(vertice_big, from) %>% rename(to=from))
+
+edge_big <- inner_join(from, edge)
+edge_big <- inner_join(edge_big, to)
+
+eva2 <- graph.data.frame(edge_big, directed=T, vertices=vertice_big)
+V(eva2)$size=V(eva2)$csize*.1
+V(eva2)$frame.color <- "white"
+V(eva2)$color=ifelse(V(eva2)$csize<=100, "cadetblue", ifelse(V(eva2)$csize<=250, "orange", "tomato"))
+V(eva2)$label.cex=.7
+V(eva2)$label=ifelse(V(eva2)$csize>80, V(eva2)$name, NA) # Do not show all labels - select which ones to show based on company size
+V(eva2)$label.color="black"
+E(eva2)$arrow.color="black"
+E(eva2)$arrow.size=.5
+
+set.seed(99)
+plot(eva2, layout=layout_with_fr)
+title("Big Corporate Inter-relationships", cex.main=1, col.main="black")
+legend(x=-1.5, y=-1.1, c("owns 40-100", "owns 101-250", "owns 250+"), pch=21,col="#777777", pt.bg=c("cadetblue", "orange", "tomato"), pt.cex=2, cex=.8, bty="n", ncol=1) 
+
+## Betweeness
+sort(betweenness(eva2, directed=TRUE))
+sort(degree(eva2, mode="out"))
+
+
+```
+
+#### **2.3** Analysis
+
+There are not too many big companies owning other big companies in this network - which is not too surprising.  
+
+There seems to be something interesting going on with the Liberty Media/Time Warner/Primedia/News(/Emmis/AT&T/Warner Music Group) group though: Compared to giants like Clear Channel and Liberty Group Publishing, these companies are seemingly "small" - but they are all "owned by each other". Taken together, the seven companies in this group are the biggest group in the whole sample. 
+
+Breaking the group into smaller components could be strategic for many reasons. There could be fiscal implications, as well as implications for minority shareholders' voting. Liberty Media seems to be the main "connector" between the pieces in this group (see betweeness and degree centrality measures). If I were to seek the underlying reason behind this disaggregation I would start my "investigation" at Liberty Media.
+
+
+
+
+
+.
+
+
+
+
+
+
+
+
